@@ -1,0 +1,86 @@
+# https://docs.docker.com/compose/compose-file/
+# https://docs.docker.com/compose/compose-file/compose-file-v3/
+
+version: '3'
+
+# https://blog.code4hire.com/2018/06/define-named-volume-with-host-mount-in-the-docker-compose-file/
+volumes:
+
+  wordpress_database:
+    driver: local
+    driver_opts:
+      device: /home/nlenoch/data/wordpress_database
+      o: bind
+      type: none
+
+  wordpress_files:
+    driver: local
+    driver_opts:
+      device: /home/nlenoch/data/wordpress_files
+      o: bind
+      type: none
+
+
+networks:
+  inception:
+
+
+services:
+
+  mariadb:
+    container_name: mariadb
+    image: mariadb:vs1
+    build:
+      context: ./requirements/mariadb
+      args:
+        - MDB_HOST=${MDB_HOST}
+        - MDB_NAME=${MDB_NAME}
+        - MDB_PASS=${MDB_PASS}
+        - MDB_PASS_ROOT=${MDB_PASS_ROOT}
+        - MDB_USER=${MDB_USER}
+    volumes:
+      - wordpress_database:/var/lib/mysql
+    networks:
+      - inception
+    restart: unless-stopped # behaves like always unless container is stopped
+
+  wordpress:
+    container_name: wordpress
+    image: wordpress:vs1
+    build:
+      context: ./requirements/wordpress
+    environment:
+      - WP_DB_HOST=$WP_DB_HOST
+      - WP_DB_NAME=$WP_DB_NAME
+      - WP_DB_PASS=$WP_DB_PASS
+      - WP_DB_USER=$WP_DB_USER
+      - WP_TITLE=$WP_TITLE
+      - WP_ADMIN_USER=$WP_ADMIN_USER
+      - WP_ADMIN_PASS=$WP_ADMIN_PASS
+      - WP_ADMIN_MAIL=$WP_ADMIN_MAIL
+      - WP_USER=$WP_USER
+      - WP_USER_MAIL=$WP_USER_MAIL
+      - WP_USER_PASS=$WP_USER_PASS
+      - WP_URL=$WP_URL
+    networks:
+      - inception
+    volumes:
+      - wordpress_files:/var/www/wordpress
+    depends_on:
+      - mariadb
+    restart: unless-stopped # behaves like always unless container is stopped
+
+  nginx:
+    container_name: nginx
+    image: nginx:vs1
+    build:
+      context: ./requirements/nginx
+    ports:
+      - 443:443
+    networks:
+      - inception
+    volumes:
+      - wordpress_files:/var/www/wordpress
+    depends_on:
+      - wordpress
+    restart: unless-stopped # behaves like always unless container is stopped
